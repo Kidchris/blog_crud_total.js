@@ -48,7 +48,7 @@ NEWSCHEMA('Posts', function(schema) {
 			var db = DB();
 			await db.insert(tbl, model).promise($);
 
-			$.success(model.id);
+			$.redirect('/');
 
 		}
 	});
@@ -85,7 +85,7 @@ NEWSCHEMA('Posts', function(schema) {
 			var db = DB();
 			await db.modify(tbl, model).id(params.id).where('isremoved', false).error(404).promise($);
 
-			$.success(params.id);
+			$.redirect('/');
 		}
 	});
 

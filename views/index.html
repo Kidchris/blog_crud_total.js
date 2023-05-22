@@ -1,46 +1,147 @@
 @{layout('')}
-@{title(config.name)}
+
 
 <!DOCTYPE html>
 <html>
-<head>
-	<meta charset="utf-8" />
-	<meta http-equiv="X-UA-Compatible" content="IE=11" />
-	<meta name="format-detection" content="telephone=no" />
-	<meta name="viewport" content="width=device-width, initial-scale=1" />
-	<meta name="robots" content="all,follow" />
-	<link href="//cdn.componentator.com/spa.min@18.css" rel="stylesheet" />
-	<script src="//cdn.componentator.com/spa.min@18.js"></script>
-	@{import('meta', 'head', 'default.js + ui.js', 'default.css + ui.css', 'favicon.ico')}
-</head>
-<body data---="exec">
+	<head>
+		<meta charset="utf-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=10" />
+		<meta name="format-detection" content="telephone=no" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+		<meta name="robots" content="all,follow" />
+		<link rel="stylesheet" href="https://cdn.componentator.com/spa.min@19.css" />
+		<script src="https://cdn.componentator.com/spa.min@19.js"></script>
+		@{import('default.css')}
+		<style>
+			.ui-tablegrid-bt, .ui-tablegrid-bl {
+				border:0px !important;
+			}
 
-	<div data---="LAZY directory"></div>
-	<div data---="LAZY menu"></div>
-	<div data---="LAZY approve"></div>
-	<div data---="LAZY datepicker"></div>
-	<div data---="LAZY colorpicker"></div>
-	<div data---="LAZY faicons"></div>
+		</style>
 
-	<div data---="loading" class="hidden"></div>
+	</head>
+	<body>
 
-	<script>
+		<ui-plugin path="posts">
+			<ui-component name="contextmenu"></ui-component>
+			<ui-component name="approve"></ui-component>
+			<ui-component name="exec"></ui-component>
+			<ui-component name="form" path="?.form" config="if:formpost;width:500;title:Add post;submit:?/postsubmit" class="hidden">
 
-		var common = {};
+				<div class="padding">
+					<form method="POST" enctype="multipart/form-data" action="/api/posts_insert">
+						<br/>
+						<input type="file" name="File" class="ui-input" accept="image/*"/>
+						<input type="text" name="title" class="ui-input" placeholder="Enter the title " />
+						<input type="text" name="excerpt" class="ui-input" placeholder="Enter the excerpt " />
+						<input type="textarea" name="content" class="ui-input" placeholder="Enter the content "  rows="4" />
 
-		ON('@flag showloading', function() {
-			SETTER('loading/show');
-		});
+						<button class="ui-button">SUBMIT</button>
+					</form>
 
-		ON('@flag hideloading', function() {
-			SETTER('loading/hide', 1000);
-		});
+				</div>
 
-		PLUGIN('common', function(exports) {
+			</ui-component>
 
-		});
+			<div class="padding">
 
-	</script>
+				<div class="row">
+					<div class="col-md-10 col-xs-10">
 
-</body>
+						<h3>Posts</h3>
+					</div>
+
+					<div class="col-md-2 col-xs-2">
+						<ui-component name="button" path="null" config="icon:reader;exec:?/create" class="hidden">Add Post</ui-component>
+					</div>
+				</div>
+
+				<div class="row padding">
+
+				<ui-component name="tablegrid" path="items" config="count:4" style="border:0px">
+
+						<script type="text/plain">
+
+							<div class="col-xs-12" style="">
+								<p>
+								<a href="javascript:void(0)"
+								class="exec" data-exec="?/remove" data-id="{{ value.id }}" >Edit</a></p>
+								<ui-component name="lazyimages">
+									<img src="{{value.photo}}" alt="" height="200px"/>
+								</ui-component>
+							</div>
+							<div class="col-xs-12">
+								<h3> <b> {{ value.title }} </b> </h3>
+								<p> {{ value.excerpt }}</p>
+								<p> Publised on : </br> {{ value.dtcreated | format('dd-MM-yyyy') }} </p>
+							</div>
+
+						</script>
+
+					</ui-component>
+
+				</div>
+
+			</div>
+		</ui-plugin>
+
+		<script>
+
+			var items = [];
+
+			PLUGIN('posts', function(exports) {
+				DEF.api = '/api/';
+
+				exports.reload = function() {
+					exports.refresh();
+				};
+
+				exports.refresh = function() {
+					DAPI('posts_list', function(response) {
+						SET('items', response.items);
+					});
+				};
+
+				exports.create = function() {
+					SET('?.form', 'formpost');
+				};
+
+				exports.update = function(el) {
+
+					var id = el[0].getAttribute('data-id');
+					var title;
+					var excerpt;
+					var content;
+
+					exports.tapi('posts_read/'+ id, function(response) {
+						title = response.title;
+						excerpt = response.excerpt;
+						content = response.content;
+						console.log(title, excerpt, content);
+					});
+				};
+
+				exports.remove = function(el) {
+					var id = el[0].getAttribute('data-id');
+					SETTER('contextmenu/show', 'left', el, [{ name: 'Update', icon: 'ti-copy', value: 'update' }, { name: 'Remove', icon: 'ti-times-circle', value: 'remove' }], function(item) {
+
+						if(item.value === 'remove'){
+
+							SETTER(true, 'approve/show', '<i class="ti ti-question-circle"></i> Do you want to remove this post?', '"check-circle" OK', function() {
+								exports.tapi('posts_remove/' + id, function() {
+									location.reload(true);
+								});
+							});
+						}
+						if(item.value === 'update') {
+							exports.update(el);
+						}
+					});
+				};
+
+				exports.reload();
+
+			});
+		</script>
+	</body>
 </html>
