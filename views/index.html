@@ -11,11 +11,12 @@
 		<meta name="robots" content="all,follow" />
 		<link rel="stylesheet" href="https://cdn.componentator.com/spa.min@19.css" />
 		<script src="https://cdn.componentator.com/spa.min@19.js"></script>
-		@{import('default.css')}
 		<style>
 			.ui-tablegrid-bt, .ui-tablegrid-bl {
 				border:0px !important;
 			}
+			.m { margin-bottom: 20px; }
+			.bg { margin: 5px; background-color: #F0F0F0; }
 
 		</style>
 
@@ -23,25 +24,37 @@
 	<body>
 
 		<ui-plugin path="posts">
-			<ui-component name="contextmenu"></ui-component>
-			<ui-component name="approve"></ui-component>
+			<ui-component name="LAZY approve"></ui-component>
 			<ui-component name="exec"></ui-component>
-			<ui-component name="form" path="?.form" config="if:formpost;width:500;title:Add post;submit:?/postsubmit" class="hidden">
+			<ui-component name="notify"></ui-component>
+			<ui-component name="menu"></ui-component>
 
-				<div class="padding">
-					<form method="POST" enctype="multipart/form-data" action="/api/posts_insert">
-						<br/>
-						<input type="file" name="File" class="ui-input" accept="image/*"/>
-						<input type="text" name="title" class="ui-input" placeholder="Enter the title " />
-						<input type="text" name="excerpt" class="ui-input" placeholder="Enter the excerpt " />
-						<input type="textarea" name="content" class="ui-input" placeholder="Enter the content "  rows="4" />
+			<ui-component name="modal" path="common.form" config="if:formpost;submit:?/post_submit;width:800;title:Add/Edit a post" class="hidden">
 
-						<button class="ui-button">SUBMIT</button>
-					</form>
-
+				<div>
+					<span class="link cancel"><i class="ti ti-times"></i></span>
+					<label>@(Add/Edit post)</label>
 				</div>
+				<div class="padding npb">
 
+					<div class="row">
+						<div class="col-md-12 m">
+							<ui-component name="input" path="common.title" config="required:1;maxlength:148;innerlabel:1;placeholder:Enter the Title">@(Title)</ui-component>
+						</div>
+						<div class="col-md-12 m">
+							<ui-component name="input" path="common.excerpt" config="required:1;maxlength:256;type:multiline;innerlabel:1;placeholder:Enter the excerpt">@(Excerpt)</ui-component>
+						</div>
+						<div class="col-md-12 m">
+							<ui-component name="markdowneditor" path="common.content" config="markdown">@(Content)</ui-component>
+						</div>
+					</div>
+				</div>
+				<div>
+					<button class="link cancel">Cancel</button>
+					<button name="submit"><i class="ti ti-save"></i> Submit </button>
+				</div>
 			</ui-component>
+
 
 			<div class="padding">
 
@@ -52,33 +65,36 @@
 					</div>
 
 					<div class="col-md-2 col-xs-2">
-						<ui-component name="button" path="null" config="icon:reader;exec:?/create" class="hidden">Add Post</ui-component>
+						<ui-component name="button" config="icon:reader;exec:?/create" class="hidden"> @( Add Post )</ui-component>
 					</div>
 				</div>
 
 				<div class="row padding">
 
-				<ui-component name="tablegrid" path="items" config="count:4" style="border:0px">
+						<ui-bind  path="items" config="template">
 
 						<script type="text/plain">
+							<div class="row">
+								{{ foreach m in value }}
+									<div class="col-sm-3 m">
+										<div class="row bg">
+											<div class="col-sm-10">
 
-							<div class="col-xs-12" style="">
-								<p>
-								<a href="javascript:void(0)"
-								class="exec" data-exec="?/remove" data-id="{{ value.id }}" >Edit</a></p>
-								<ui-component name="lazyimages">
-									<img src="{{value.photo}}" alt="" height="200px"/>
-								</ui-component>
+												<h2>{{ m.title }}</h2>
+												<p><i>{{ m.excerpt }}</i></p>
+												<p> Publised on : {{ m.dtcreated | format('dd-MM-yyyy') }} </p>
+											</div>
+											<div class="col-sm-2">
+												<a href="javascript:void(0)" data-id="{{m.id}}" class="menu options" style="color:black;font-size:20px"><i class="ti ti-ellipsis-v"></i></a>
+											</div>
+										</div>
+									</div>
+								{{end}}
 							</div>
-							<div class="col-xs-12">
-								<h3> <b> {{ value.title }} </b> </h3>
-								<p> {{ value.excerpt }}</p>
-								<p> Publised on : </br> {{ value.dtcreated | format('dd-MM-yyyy') }} </p>
-							</div>
 
-						</script>
+							</script>
+                </ui-bind>
 
-					</ui-component>
 
 				</div>
 
@@ -88,8 +104,10 @@
 		<script>
 
 			var items = [];
+			var common = {};
 
 			PLUGIN('posts', function(exports) {
+
 				DEF.api = '/api/';
 
 				exports.reload = function() {
@@ -97,51 +115,64 @@
 				};
 
 				exports.refresh = function() {
-					DAPI('posts_list', function(response) {
+					exports.tapi('posts_list', function(response) {
 						SET('items', response.items);
 					});
 				};
 
 				exports.create = function() {
-					SET('?.form', 'formpost');
+					SET('common.form', 'formpost');
 				};
 
-				exports.update = function(el) {
+				exports.post_submit = function(hide) {
+					var model = common;
+					delete model.form ;
 
-					var id = el[0].getAttribute('data-id');
-					var title;
-					var excerpt;
-					var content;
-
-					exports.tapi('posts_read/'+ id, function(response) {
-						title = response.title;
-						excerpt = response.excerpt;
-						content = response.content;
-						console.log(title, excerpt, content);
+					exports.tapi((model.id ? ('posts_update/' + model.id) : 'posts_insert'), model, function(response) {
+						hide();
+						exports.refresh();
+						model.id ? SETTER('notify/success', 'Post Updated') : SETTER('notify/success', 'Post Added');
 					});
 				};
 
-				exports.remove = function(el) {
-					var id = el[0].getAttribute('data-id');
-					SETTER('contextmenu/show', 'left', el, [{ name: 'Update', icon: 'ti-copy', value: 'update' }, { name: 'Remove', icon: 'ti-times-circle', value: 'remove' }], function(item) {
+			$(document).on('click', 'a.menu.options', function() {
 
-						if(item.value === 'remove'){
+				var opt = {};
+				opt.items = ['Option', { name: 'Update', icon: 'print', value: 'update', note: 'Update content' }, { name: 'Delete', icon: 'trash', note: 'Delete post', value: "remove" }, '-'];
+				opt.align = 'center';
+				opt.element = this;
+				opt.callback = function(selected) {
+					var id = $(opt.element).attrd2('id');
 
-							SETTER(true, 'approve/show', '<i class="ti ti-question-circle"></i> Do you want to remove this post?', '"check-circle" OK', function() {
-								exports.tapi('posts_remove/' + id, function() {
-									location.reload(true);
-								});
+					switch( selected.value ) {
+
+						case 'remove':
+						SETTER(true, 'approve/show', '<i class="ti ti-question-circle"></i> Do you want to remove this post?', '"check-circle" OK', function() {
+							exports.tapi('posts_remove/' + id, function() {
+								exports.refresh();
+								SETTER('notify/success', 'Post Deleted successfully');
+
 							});
-						}
-						if(item.value === 'update') {
-							exports.update(el);
-						}
-					});
-				};
+						});
+						break;
 
-				exports.reload();
+						case 'update':
+						exports.tapi('posts_read/'+ id, function( response ) {
+
+							SET('common', response);
+							SET('common.form', 'formpost');
+						});
+						break;
+					};
+				};
+				SETTER('menu/show', opt);
+			});
+
+
+				setTimeout(exports.reload, 200);
 
 			});
+
 		</script>
 	</body>
 </html>
